@@ -8,6 +8,7 @@ rm -rf `dirname $0`/project/target
 rm -rf `dirname $0`/logs
 rm -rf `dirname $0`/src/anorm/target
 rm -rf `dirname $0`/src/play/target
+rm -rf `dirname $0`/src/play-test/target
 rm -rf `dirname $0`/src/templates/target
 rm -rf `dirname $0`/src/sbt-plugin/target
 rm -rf `dirname $0`/src/console/target
