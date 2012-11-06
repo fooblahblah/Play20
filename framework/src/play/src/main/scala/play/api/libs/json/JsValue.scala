@@ -206,7 +206,7 @@ case class JsObject(fields: Seq[(String, JsValue)]) extends JsValue {
    * adds one field from JsObject
    */
   def +(otherField: (String, JsValue)): JsObject =
-    JsObject(fields :+ otherField)  
+    JsObject(fields :+ otherField)
 
   /**
    * merges everything in depth and doesn't stop at first level as ++
@@ -216,43 +216,43 @@ case class JsObject(fields: Seq[(String, JsValue)]) extends JsValue {
     def step(fields: List[(String, JsValue)], others: List[(String, JsValue)]): Seq[(String, JsValue)] = {
       others match {
         case List() => fields
-        case List(sv) => 
+        case List(sv) =>
           var found = false
           val newFields = fields match {
             case List() => List(sv)
             case _ => fields.foldLeft(List[(String, JsValue)]()){ (acc, field) => field match {
-              case (key, obj: JsObject) if(key == sv._1) => 
+              case (key, obj: JsObject) if(key == sv._1) =>
                 found = true
                 acc :+ key -> {
                   sv._2 match {
-                    case o @ JsObject(_) => obj.deepMerge(o) 
+                    case o @ JsObject(_) => obj.deepMerge(o)
                     case js => js
                   }
               }
-              case (key, value) if(key == sv._1) => 
+              case (key, value) if(key == sv._1) =>
                 found = true
                 acc :+ key -> sv._2
               case (key, value) => acc :+ key -> value
             } }
           }
-          
+
           if(!found) fields :+ sv
           else newFields
 
-        case head :: tail => 
+        case head :: tail =>
           var found = false
           val headFields = fields match {
             case List() => List(head)
               case _ => fields.foldLeft(List[(String, JsValue)]()){ (acc, field) => field match {
-              case (key, obj: JsObject) if(key == head._1) => 
+              case (key, obj: JsObject) if(key == head._1) =>
                 found = true
                 acc :+ key -> {
                   head._2 match {
-                    case o @ JsObject(_) => obj.deepMerge(o) 
+                    case o @ JsObject(_) => obj.deepMerge(o)
                     case js => js
                   }
                 }
-              case (key, value) if(key == head._1) => 
+              case (key, value) if(key == head._1) =>
                 found = true
                 acc :+ key -> head._2
               case (key, value) => acc :+ key -> value
@@ -261,7 +261,7 @@ case class JsObject(fields: Seq[(String, JsValue)]) extends JsValue {
 
           if(!found) step(fields :+ head, tail)
           else step(headFields, tail)
-          
+
       }
     }
 
@@ -361,7 +361,10 @@ private[json] class JsValueDeserializer(factory: TypeFactory, klass: Class[_]) e
 
       case (JsonToken.VALUE_NUMBER_INT, c) => (Some(JsNumber(jp.getLongValue)), c)
 
-      case (JsonToken.VALUE_NUMBER_FLOAT, c) => (Some(JsNumber(jp.getDoubleValue)), c)
+      case (JsonToken.VALUE_NUMBER_FLOAT, c) => jp.getDoubleValue match {
+        case v if(v.isNaN) => (Some(JsNull), c)
+        case v             => (Some(JsNumber(v)), c)
+      }
 
       case (JsonToken.VALUE_STRING, c) => (Some(JsString(jp.getText)), c)
 
@@ -449,7 +452,7 @@ private[json] object JacksonJson{
   private[this]  val classLoader = Thread.currentThread().getContextClassLoader
 
   private[this] val mapper = new ObjectMapper
-  
+
   object module extends SimpleModule("PlayJson", Version.unknownVersion()) {
     override def setupModule(context: SetupContext) {
       context.addDeserializers(new PlayDeserializers(classLoader))
@@ -461,10 +464,13 @@ private[json] object JacksonJson{
   private[this] lazy val jsonFactory = new org.codehaus.jackson.JsonFactory(mapper)
 
   private[this] def stringJsonGenerator(out: java.io.StringWriter) = jsonFactory.createJsonGenerator(out)
-  
-  private[this] def jsonParser(c: String) = jsonFactory.createJsonParser(c)
 
-  
+  private[this] def jsonParser(c: String) = {
+    jsonFactory.enable(JsonParser.Feature.ALLOW_NON_NUMERIC_NUMBERS)
+    jsonFactory.createJsonParser(c)
+  }
+
+
 
   def parseJsValue(input: String): JsValue = {
     mapper.readValue(jsonParser(input), classOf[JsValue])
@@ -478,6 +484,6 @@ private[json] object JacksonJson{
     sw.getBuffer.toString
   }
 
- 
+
 
 }

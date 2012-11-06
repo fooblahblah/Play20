@@ -8,15 +8,15 @@ import play.api.libs.functional.syntax._
 import scala.util.control.Exception._
 import java.text.ParseException
 
-import play.api.data.validation.ValidationError 
+import play.api.data.validation.ValidationError
 
 
 object JsonSpec extends Specification {
   "JSON" should {
     "equals JsObject independently of field order" in {
       Json.obj(
-        "field1" -> 123, 
-        "field2" -> "beta", 
+        "field1" -> 123,
+        "field2" -> "beta",
         "field3" -> Json.obj(
           "field31" -> true,
           "field32" -> 123.45,
@@ -24,7 +24,7 @@ object JsonSpec extends Specification {
         )
       ) must beEqualTo(
         Json.obj(
-          "field2" -> "beta", 
+          "field2" -> "beta",
           "field3" -> Json.obj(
             "field31" -> true,
             "field33" -> Json.arr("blabla", 456L, JsNull),
@@ -35,8 +35,8 @@ object JsonSpec extends Specification {
       )
 
       Json.obj(
-        "field1" -> 123, 
-        "field2" -> "beta", 
+        "field1" -> 123,
+        "field2" -> "beta",
         "field3" -> Json.obj(
           "field31" -> true,
           "field32" -> 123.45,
@@ -44,7 +44,7 @@ object JsonSpec extends Specification {
         )
       ) must not equalTo(
         Json.obj(
-          "field2" -> "beta", 
+          "field2" -> "beta",
           "field3" -> Json.obj(
             "field31" -> true,
             "field33" -> Json.arr("blabla", 456L),
@@ -55,8 +55,8 @@ object JsonSpec extends Specification {
       )
 
       Json.obj(
-        "field1" -> 123, 
-        "field2" -> "beta", 
+        "field1" -> 123,
+        "field2" -> "beta",
         "field3" -> Json.obj(
           "field31" -> true,
           "field32" -> 123.45,
@@ -92,11 +92,11 @@ object JsonSpec extends Specification {
         (__ \ 'key4).write(constraints.map[String])
       ) tupled
 
-      Json.toJson( List(1, 2, 3), 
-        Set("alpha", "beta", "gamma"), 
-        Seq("alpha", "beta", "gamma"), 
+      Json.toJson( List(1, 2, 3),
+        Set("alpha", "beta", "gamma"),
+        Seq("alpha", "beta", "gamma"),
         Map("key1" -> "value1", "key2" -> "value2")
-      ) must beEqualTo( 
+      ) must beEqualTo(
         Json.obj(
           "key1" -> Json.arr(1, 2, 3),
           "key2" -> Json.arr("alpha", "beta", "gamma"),
@@ -104,6 +104,18 @@ object JsonSpec extends Specification {
           "key4" -> Json.obj("key1" -> "value1", "key2" -> "value2")
         )
       )
+    }
+  }
+
+  "JSON reads" should {
+    "Can parse Array containing NaN as null" in {
+      val js = Json.parse("""[1.0, 2.0, NaN]""")
+      js === JsArray(JsNumber(1.0) :: JsNumber(2.0) :: JsNull :: Nil)
+    }
+
+    "Can parse bare NaN as null" in {
+      val js = Json.parse("""NaN""")
+      js === JsNull
     }
   }
 }
@@ -189,7 +201,7 @@ object JsonSpec extends Specification {
       (jsonM \ "timestamp").as[Long] must equalTo(t)
       (jsonM.toString must equalTo("{\"timestamp\":1330950829160}"))
     }
-    
+
     "Serialize and deserialize BigDecimals" in {
       val n = BigDecimal("12345678901234567890.42")
       val json = toJson(n)
@@ -238,21 +250,21 @@ object JsonSpec extends Specification {
 
     "generate validation error when parsing " in {
       val obj = Json.obj(
-        "id" -> 1, 
-        "name" -> "bob", 
+        "id" -> 1,
+        "name" -> "bob",
         "friends" -> 5)
 
       obj.validate[User] must equalTo(JsError(Seq(JsPath \ 'friends -> Seq(ValidationError("validate.error.expected.jsarray")))))
     }
 
     /*"prune branches of Json AST" in {
-      val obj = Json.obj( 
+      val obj = Json.obj(
         "level1" -> Json.obj(
           "key1" -> Json.arr(
             "key11",
             Json.obj("key111" -> Json.obj("tags" -> Json.arr("alpha1", "beta1", "gamma1"))),
             "key12"
-          ), 
+          ),
           "key2" -> Json.obj(
             "key21" -> Json.obj("tags" -> Json.arr("alpha2", "beta2", "gamma2"))
           )
@@ -260,19 +272,19 @@ object JsonSpec extends Specification {
         "level2" -> 5
       )
 
-      obj.prune((JsPath \ "level1" \ "key1")(1) \\ "tags") must equalTo(Json.obj( 
+      obj.prune((JsPath \ "level1" \ "key1")(1) \\ "tags") must equalTo(Json.obj(
         "level1" -> Json.obj(
           "key1" -> Json.arr(
             "key11",
             Json.obj("key111" -> Json.obj()),
             "key12"
-          ), 
+          ),
           "key2" -> Json.obj(
             "key21" -> Json.obj("tags" -> Json.arr("alpha2", "beta2", "gamma2"))
           )
         ),
         "level2" -> 5
-      )) 
+      ))
 
     }*/
 
