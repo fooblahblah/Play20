@@ -18,6 +18,7 @@ import play.core.server.netty._
 
 import java.security.cert.X509Certificate
 import java.io.{File, FileInputStream}
+import scala.util.control.NonFatal
 
 /**
  * provides a stopable Server
@@ -52,7 +53,6 @@ class NettyServer(appProvider: ApplicationProvider, port: Int, sslPort: Option[I
       }
       newPipeline.addLast("decoder", new HttpRequestDecoder(4096, 8192, 8192))
       newPipeline.addLast("encoder", new HttpResponseEncoder())
-      newPipeline.addLast("compressor", new HttpContentCompressor())
       newPipeline.addLast("decompressor", new HttpContentDecompressor())
       newPipeline.addLast("handler", defaultUpStreamHandler)
       newPipeline
@@ -75,7 +75,7 @@ class NettyServer(appProvider: ApplicationProvider, port: Int, sslPort: Option[I
             kmf.init(keyStore, password)
             Some(kmf)
           } catch {
-            case e: Exception => {
+            case NonFatal(e) => {
               Logger("play").error("Error loading HTTPS keystore from " + file.getAbsolutePath, e)
               None
             }
@@ -153,13 +153,13 @@ class NettyServer(appProvider: ApplicationProvider, port: Int, sslPort: Option[I
     try {
       Play.stop()
     } catch {
-      case e: Exception => Logger("play").error("Error while stopping the application", e)
+      case NonFatal(e) => Logger("play").error("Error while stopping the application", e)
     }
 
     try {
       super.stop()
     } catch {
-      case e: Exception => Logger("play").error("Error while stopping akka", e)
+      case NonFatal(e) => Logger("play").error("Error while stopping akka", e)
     }
 
     mode match {
@@ -239,7 +239,7 @@ object NettyServer {
 
       Some(server)
     } catch {
-      case e: Exception => {
+      case NonFatal(e) => {
         println("Oops, cannot start the server.")
         e.printStackTrace()
         None

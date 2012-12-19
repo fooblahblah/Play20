@@ -11,6 +11,7 @@ import scala.collection._
 import scala.collection.immutable.Stack
 import scala.annotation.tailrec
 import play.api.data.validation.ValidationError
+import java.io.ByteArrayInputStream
 
 
 case class JsResultException(errors: Seq[(JsPath, Seq[ValidationError])]) extends RuntimeException( "JsResultException(errors:%s)".format(errors) )
@@ -111,7 +112,7 @@ case class JsNumber(value: BigDecimal) extends JsValue
 case class JsString(value: String) extends JsValue
 
 /**
- * Represent a Json arayy value.
+ * Represent a Json array value.
  */
 case class JsArray(value: Seq[JsValue] = List()) extends JsValue{
 
@@ -470,7 +471,12 @@ private[json] object JacksonJson{
     jsonFactory.createJsonParser(c)
   }
 
+  // Pass in ByteArrayInputStream to work around https://github.com/FasterXML/jackson-core/issues/42
+  private[this] def jsonParser(data: Array[Byte]): JsonParser = jsonFactory.createJsonParser(new ByteArrayInputStream(data))
 
+  def parseJsValue(data: Array[Byte]): JsValue = {
+    mapper.readValue(jsonParser(data), classOf[JsValue])
+  }
 
   def parseJsValue(input: String): JsValue = {
     mapper.readValue(jsonParser(input), classOf[JsValue])

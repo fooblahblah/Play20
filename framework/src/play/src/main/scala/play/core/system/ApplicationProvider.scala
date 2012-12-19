@@ -9,6 +9,7 @@ import scala.concurrent.duration._
 
 import play.api._
 import play.api.mvc._
+import scala.util.control.NonFatal
 
 /**
  * provides source code to be displayed on error pages
@@ -23,6 +24,10 @@ trait SourceMapper {
     }
   }
 
+}
+
+trait DevSettings {
+  def devSettings: Map[String,String]
 }
 
 /**
@@ -120,7 +125,10 @@ class ReloadableApplication(sbtLink: SBTLink) extends ApplicationProvider {
                     case _ => None
                   }
                 }
-              }),Mode.Dev)
+              }), Mode.Dev) with DevSettings {
+                import scala.collection.JavaConverters._
+                lazy val devSettings: Map[String,String] = sbtLink.settings.asScala.toMap
+              }
 
               Play.start(newApplication)
 
@@ -130,7 +138,7 @@ class ReloadableApplication(sbtLink: SBTLink) extends ApplicationProvider {
                 lastState = Left(e)
                 lastState
               }
-              case e: Exception => {
+              case NonFatal(e) => {
                 lastState = Left(UnexpectedException(unexpected = Some(e)))
                 lastState
               }

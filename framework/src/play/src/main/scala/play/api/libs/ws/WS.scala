@@ -1,5 +1,6 @@
 package play.api.libs.ws
 
+import java.io.File
 import scala.concurrent.{Future, Promise}
 import play.api.libs.iteratee._
 import play.api.libs.iteratee.Input._
@@ -17,6 +18,7 @@ import com.ning.http.client.{
 }
 import collection.immutable.TreeMap
 import play.core.utils.CaseInsensitiveOrdered
+import com.ning.http.util.AsyncHttpProviderUtils
 
 /**
  * Asynchronous API to to query web services, as an http client.
@@ -368,6 +370,12 @@ object WS {
     def post[T](body: T)(implicit wrt: Writeable[T], ct: ContentTypeOf[T]): Future[Response] = prepare("POST", body).execute
 
     /**
+     * Perform a POST on the request asynchronously.
+     * Request body won't be chunked
+     */
+    def post(body: File): Future[Response] = prepare("POST", body).execute
+
+    /**
      * performs a POST with supplied body
      * @param consumer that's handling the response
      */
@@ -377,6 +385,12 @@ object WS {
      * Perform a PUT on the request asynchronously.
      */
     def put[T](body: T)(implicit wrt: Writeable[T], ct: ContentTypeOf[T]): Future[Response] = prepare("PUT", body).execute
+
+    /**
+     * Perform a PUT on the request asynchronously.
+     * Request body won't be chunked
+     */
+    def put(body: File): Future[Response] = prepare("PUT", body).execute
 
     /**
      * performs a PUT with supplied body
@@ -399,6 +413,13 @@ object WS {
      */
     def options(): Future[Response] = prepare("OPTIONS").execute
 
+    /**
+     * Execute an arbitrary method on the request asynchronously.
+     *
+     * @param method The method to execute
+     */
+    def execute(method: String): Future[Response] = prepare(method).execute
+
     private[play] def prepare(method: String) = {
       val request = new WSRequest(method, auth, calc).setUrl(url)
         .setHeaders(headers)
@@ -412,6 +433,29 @@ object WS {
       virtualHost.map { v =>
         request.setVirtualHost(v)
       }
+      request
+    }
+
+    private[play] def prepare(method: String, body: File) = {
+      import com.ning.http.client.generators.FileBodyGenerator
+      import java.nio.ByteBuffer
+
+      val bodyGenerator = new FileBodyGenerator(body);
+
+      val request = new WSRequest(method, auth, calc).setUrl(url)
+        .setHeaders(headers)
+        .setQueryString(queryString)
+        .setBody(bodyGenerator)
+      followRedirects.map(request.setFollowRedirects(_))
+      timeout.map { t: Int =>
+        val config = new PerRequestConfig()
+        config.setRequestTimeoutInMs(t)
+        request.setPerRequestConfig(config)
+      }
+      virtualHost.map { v =>
+        request.setVirtualHost(v)
+      }
+
       request
     }
 
@@ -466,7 +510,19 @@ case class Response(ahcResponse: AHCResponse) {
   /**
    * The response body as String.
    */
-  lazy val body: String = ahcResponse.getResponseBody()
+  lazy val body: String = {
+    // RFC-2616#3.7.1 states that any text/* mime type should default to ISO-8859-1 charset if not
+    // explicitly set, while Plays default encoding is UTF-8.  So, use UTF-8 if charset is not explicitly
+    // set and content type is not text/*, otherwise default to ISO-8859-1
+    val contentType = Option(ahcResponse.getContentType).getOrElse("application/octet-stream")
+    val charset = Option(AsyncHttpProviderUtils.parseCharset(contentType)).getOrElse {
+      if (contentType.startsWith("text/"))
+        AsyncHttpProviderUtils.DEFAULT_CHARSET
+      else
+        "utf-8"
+    }
+    ahcResponse.getResponseBody(charset)
+  }
 
   /**
    * The response body as Xml.
@@ -476,7 +532,7 @@ case class Response(ahcResponse: AHCResponse) {
   /**
    * The response body as Json.
    */
-  lazy val json: JsValue = Json.parse(body)
+  lazy val json: JsValue = Json.parse(ahcResponse.getResponseBodyAsBytes)
 
 }
 

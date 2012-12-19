@@ -36,8 +36,6 @@ trait PlayKeys {
 
   val playAssetsDirectories = SettingKey[Seq[File]]("play-assets-directories")
 
-  val incrementalAssetsCompilation = SettingKey[Boolean]("play-incremental-assets-compilation")
-
   val playExternalAssets = SettingKey[Seq[(File, File => PathFinder, String)]]("play-external-assets")
 
   val confDirectory = SettingKey[File]("play-conf")
@@ -63,6 +61,8 @@ trait PlayKeys {
   val javascriptEntryPoints = SettingKey[PathFinder]("play-javascript-entry-points")
 
   val playPlugin = SettingKey[Boolean]("play-plugin")
+
+  val devSettings = SettingKey[Seq[(String,String)]]("play-dev-settings")
 
 }
 object PlayKeys extends PlayKeys

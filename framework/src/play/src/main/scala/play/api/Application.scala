@@ -13,6 +13,7 @@ import annotation.implicitNotFound
 
 import java.lang.reflect.InvocationTargetException
 import reflect.ClassTag
+import scala.util.control.NonFatal
 
 
 trait WithDefaultGlobal {
@@ -37,7 +38,7 @@ trait WithDefaultGlobal {
   } catch {
     case e: ClassNotFoundException if !initialConfiguration.getString("application.global").isDefined => DefaultGlobal
     case e if initialConfiguration.getString("application.global").isDefined => {
-      throw initialConfiguration.reportError("application.global", "Cannot initialize the custom Global object (%s) (perhaps it's a wrong reference?)".format(e.getMessage))
+      throw initialConfiguration.reportError("application.global", "Cannot initialize the custom Global object (%s) (perhaps it's a wrong reference?)", Some(e))
     }
   }
 
@@ -51,7 +52,9 @@ trait WithDefaultGlobal {
       javaGlobal.map(new j.JavaGlobalSettingsAdapter(_)).getOrElse(scalaGlobal)
     } catch {
       case e: PlayException => throw e
-      case e: Exception => throw new PlayException(
+      case e: ThreadDeath => throw e
+      case e: VirtualMachineError => throw e
+      case e: Throwable => throw new PlayException(
         "Cannot init the Global object",
         e.getMessage,
         e
@@ -68,7 +71,10 @@ trait WithDefaultConfiguration {
   self: Application =>
 
   protected lazy val initialConfiguration = Threads.withContextClassLoader(self.classloader) {
-    Configuration.load(path, mode)
+    Configuration.load(path, mode, this match {
+      case dev: DevSettings => dev.devSettings
+      case _ => Map.empty
+    })
   }
 
   private lazy val fullConfiguration = global.onLoadConfig(initialConfiguration, path, classloader, mode)
@@ -132,7 +138,9 @@ trait WithDefaultPlugins {
             if (plugin.enabled) Some(plugin) else { Logger("play").warn("Plugin [" + className + "] is disabled"); None }
           } catch {
             case e: PlayException => throw e
-            case e: Exception => throw new PlayException(
+            case e: VirtualMachineError => throw e
+            case e: ThreadDeath => throw e
+            case e: Throwable => throw new PlayException(
               "Cannot load plugin",
               "Plugin [" + className + "] cannot been instantiated.",
               e)
@@ -143,7 +151,9 @@ trait WithDefaultPlugins {
           "An exception occurred during Plugin [" + className + "] initialization",
           e.getTargetException)
         case e: PlayException => throw e
-        case e: Exception => throw new PlayException(
+        case e: ThreadDeath => throw e
+        case e: VirtualMachineError => throw e
+        case e: Throwable => throw new PlayException(
           "Cannot load plugin",
           "Plugin [" + className + "] cannot been instantiated.",
           e)
@@ -288,7 +298,7 @@ trait Application {
       }
     }
   } catch {
-    case e: Exception => try {
+    case NonFatal(e) => try {
       Logger.error(
         """
         |
@@ -301,7 +311,7 @@ trait Application {
       )
       global.onError(request, e)
     } catch {
-      case e: Exception => DefaultGlobal.onError(request, e)
+      case NonFatal(e) => DefaultGlobal.onError(request, e)
     }
   }
 

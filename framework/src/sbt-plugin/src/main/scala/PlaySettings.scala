@@ -165,7 +165,7 @@ trait PlaySettings {
 
     routesImport := Seq.empty[String],
 
-    playMonitoredDirectories <<= playMonitoredDirectoriesTask,
+    playMonitoredFiles <<= playMonitoredFilesTask,
 
     playDefaultPort := 9000,
 
@@ -201,7 +201,9 @@ trait PlaySettings {
     coffeescriptOptions := Seq.empty[String],
     closureCompilerOptions := Seq.empty[String],
 
-    incrementalAssetsCompilation := true,
+    // Settings
+
+    devSettings := Nil,
 
     // Templates
 
